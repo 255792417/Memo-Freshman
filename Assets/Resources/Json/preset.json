@@ -1,0 +1,25 @@
+{
+  "CardInfo": {
+    "Default": {
+      "Name": "Default",
+      "Description": "A default card",
+      "Type": "Item",
+      "ImageName": "Default"
+    }
+  },
+  "SentenceInfo": {
+    "Default": {
+      "Name": "Default",
+      "Description": "A default sentence",
+      "ImageName": "Default",
+      "Cards": [
+        "Default",
+        "Default"
+      ],
+      "NewCards": [
+        "Default",
+        "Default"
+      ]
+    }
+  }
+}
