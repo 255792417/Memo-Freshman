@@ -44,3 +44,6 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: NewCard
+    uniqueID: 1249551869
+    locked: 0

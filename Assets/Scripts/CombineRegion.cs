@@ -1,7 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class CombineRegion : CardDropRegion
@@ -22,7 +20,7 @@ public class CombineRegion : CardDropRegion
 
     void Update()
     {
-        
+
     }
 
     public void AddCard(Card card)
@@ -30,8 +28,10 @@ public class CombineRegion : CardDropRegion
         if (card == null || cards.Contains(card)) return;
 
         cards.Add(card);
+        card.transform.SetParent(transform);
         cardNames.Add(card.GetCardName());
         RefreshLines();
+        SentenceManager.Instance.CheckSentences();
     }
 
     public void RemoveCard(Card card)
@@ -41,6 +41,7 @@ public class CombineRegion : CardDropRegion
         cards.Remove(card);
         cardNames.Remove(card.GetCardName());
         RefreshLines();
+        ReleaseCompletionCards();
     }
 
     public void RefreshLines()
@@ -56,6 +57,19 @@ public class CombineRegion : CardDropRegion
         }
 
         SentenceManager.Instance.CheckAdjCards();
-        SentenceManager.Instance.CheckSentences();
+    }
+
+    public void ReleaseCompletionCards()
+    {
+        for (int i = cards.Count - 1; i >= 0; i--)
+        {
+            var card = cards[i];
+            if (CardManager.Instance.GetCardType(card.GetCardName()) == CardType.Completion)
+            {
+                CardManager.Instance.ReleaseCard(card.GetCardName());
+                cardNames.Remove(card.GetCardName());
+                cards.RemoveAt(i);
+            }
+        }
     }
 }

@@ -32,7 +32,6 @@ public class PointerManager : MonoBehaviour
 
     private void Awake()
     {
-        // 单例设置
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -46,13 +45,8 @@ public class PointerManager : MonoBehaviour
 
     private void Update()
     {
-        // 更新鼠标位置
         UpdateMousePosition();
-
-        // 检测点击状态
         CheckMouseState();
-
-        // 执行射线检测
         PerformRaycast();
     }
 
@@ -68,7 +62,6 @@ public class PointerManager : MonoBehaviour
         wasMouseDown = IsMouseDown;
         IsMouseDown = Input.GetMouseButton(0);
 
-        // 触发事件
         if (!wasMouseDown && IsMouseDown)
         {
             OnMouseDown?.Invoke(MousePosition, WorldPosition, TopHitObject);
@@ -78,7 +71,6 @@ public class PointerManager : MonoBehaviour
             OnMouseUp?.Invoke(MousePosition, WorldPosition, TopHitObject);
         }
 
-        // 鼠标移动事件
         if (Vector2.Distance(MousePosition, lastMousePosition) > 0.1f)
         {
             OnMouseMove?.Invoke(MousePosition, WorldPosition, TopHitObject);
@@ -89,7 +81,6 @@ public class PointerManager : MonoBehaviour
     {
         TopHitObject = null;
 
-        // 检测UI
         if (detectUI && EventSystem.current != null)
         {
             IsOverUI = EventSystem.current.IsPointerOverGameObject();
@@ -100,7 +91,6 @@ public class PointerManager : MonoBehaviour
             }
         }
 
-        // 2D物体射线检测
         Hit2DInfo = Physics2D.Raycast(WorldPosition, Vector2.zero, Mathf.Infinity, raycastLayerMask);
         if (Hit2DInfo.collider != null)
         {
@@ -110,7 +100,6 @@ public class PointerManager : MonoBehaviour
 
     private GameObject GetTopUIElement()
     {
-        // 获取当前鼠标下的UI元素
         PointerEventData eventData = new PointerEventData(EventSystem.current);
         eventData.position = MousePosition;
 
@@ -125,7 +114,6 @@ public class PointerManager : MonoBehaviour
         return null;
     }
 
-    // 注册和取消注册拖动对象的方法
     public bool RegisterDraggingObject(IDraggable draggable)
     {
         if (CurrentDraggingObject == null)
@@ -144,7 +132,6 @@ public class PointerManager : MonoBehaviour
         }
     }
 
-    // 公共方法，供其他脚本使用
     public bool IsObjectUnderMouse(GameObject obj)
     {
         return TopHitObject == obj;

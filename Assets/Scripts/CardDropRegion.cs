@@ -6,8 +6,9 @@ public class CardDropRegion : MonoBehaviour
 {
     public static CardDropRegion Instance { get; private set; }
     public RectTransform RectTransform = null;
-    Vector3[] regionCorners = new Vector3[4];
+    public Vector3[] regionCorners = new Vector3[4];
     private Bounds RegionBounds;
+    public Vector3 CenterPosition = new Vector3(0, 0, 0);
 
     private void Awake()
     {
@@ -23,6 +24,7 @@ public class CardDropRegion : MonoBehaviour
             (regionCorners[0] + regionCorners[2]) * 0.5f,
             regionCorners[2] - regionCorners[0]
         );
+        CenterPosition = (regionCorners[0] + regionCorners[2]) * 0.5f;
     }
 
     public bool isPointInRegion(Vector2 point)
@@ -57,5 +59,15 @@ public class CardDropRegion : MonoBehaviour
         float xOverlap = Mathf.Max(0, Mathf.Min(a.max.x, b.max.x) - Mathf.Max(a.min.x, b.min.x));
         float yOverlap = Mathf.Max(0, Mathf.Min(a.max.y, b.max.y) - Mathf.Max(a.min.y, b.min.y));
         return xOverlap * yOverlap;
+    }
+
+    public float GetSizeX()
+    {
+        return RegionBounds.size.x;
+    }
+
+    public float GetSizeY()
+    {
+        return RegionBounds.size.y;
     }
 }

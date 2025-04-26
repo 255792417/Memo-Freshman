@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using DG.Tweening;
+using Microsoft.Unity.VisualStudio.Editor;
 
 public class Card : MonoBehaviour, IDraggable
 {
     public CardState CardState;
     private PointerManager PointerManager;
+
+    private Vector3 originalScale;
 
     private Vector2 dragOffset;
     private Vector3 originalPosition;
@@ -30,11 +33,15 @@ public class Card : MonoBehaviour, IDraggable
 
     private CardState previousState;
 
+    private bool DragAudioPlayed = false;
+
     private void Awake()
     {
         CardState = CardState.Wait;
+        
         originalPosition = transform.position;
         rectTransform = GetComponent<RectTransform>();
+        originalScale = transform.localScale;
     }
 
     private void Start()
@@ -94,6 +101,12 @@ public class Card : MonoBehaviour, IDraggable
 
     void DraggedUpdate()
     {
+        if (DragAudioPlayed == false)
+        {
+            AudioManager.Instance.PlayAudioClip("拖拽纸片", false);
+            DragAudioPlayed = true;
+        }
+
         OnDrag(dragOffset);
 
         if (!PointerManager.IsMouseDown)
@@ -122,20 +135,58 @@ public class Card : MonoBehaviour, IDraggable
             originalPosition = transform.position;
 
             CombineRegion.Instance.RemoveCard(this);
+            StoreRegion.Instance.RemoveCard(this);
 
             CardManager.Instance.SetInfo(GetCardName());
 
-            transform.DOScale(draggedScale, scaleTransitionDuration).SetEase(scaleEase);
+            transform.DOScale(draggedScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
             
         }
     }
 
     public void OnDragEnd()
     {
-        if(regions == null)
-            regions = FindObjectsByType<CardDropRegion>(FindObjectsSortMode.None);
+        CheckRegion(out CardDropRegion targetRegion);
 
-        CardDropRegion targetRegion = null;
+        if (targetRegion == null)
+        {
+            transform.DOMove(originalPosition, 0.5f);
+
+            if (previousState == CardState.Selected)
+            {
+                CardState = CardState.Selected;
+                transform.DOScale(selectedScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
+            }
+            else
+            {
+                CardState = CardState.Wait;
+                transform.DOScale(normalScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
+            }
+        }
+        else
+        {
+            CardState = previousState;
+            if (CardState == CardState.Selected)
+            {
+                transform.DOScale(selectedScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
+            }
+            else
+                transform.DOScale(normalScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
+
+            Debug.Log($"Card placed in region: {targetRegion.name}");
+        }
+
+        PointerManager.UnregisterDraggingObject(this);
+        DragAudioPlayed = false;
+
+        AudioManager.Instance.PlayAudioClip("放下纸片",false);
+    }
+
+    public void CheckRegion(out CardDropRegion targetRegion)
+    {
+        regions ??= FindObjectsByType<CardDropRegion>(FindObjectsSortMode.None);
+
+        targetRegion = null;
 
         foreach (var region in regions)
         {
@@ -146,40 +197,17 @@ public class Card : MonoBehaviour, IDraggable
             }
         }
 
-        if (targetRegion == null)
-        {
-            transform.DOMove(originalPosition, 0.5f);
-
-            if (previousState == CardState.Selected)
-            {
-                CardState = CardState.Selected;
-                transform.DOScale(selectedScale, scaleTransitionDuration).SetEase(scaleEase);
-            }
-            else
-            {
-                CardState = CardState.Wait;
-                transform.DOScale(normalScale, scaleTransitionDuration).SetEase(scaleEase);
-            }
-        }
-        else
-        {
-            CardState = previousState;
-            if (CardState == CardState.Selected)
-            {
-                transform.DOScale(selectedScale, scaleTransitionDuration).SetEase(scaleEase);
-            }
-            else
-                transform.DOScale(normalScale, scaleTransitionDuration).SetEase(scaleEase);
-
-            Debug.Log($"Card placed in region: {targetRegion.name}");
-        }
+        
 
         if (targetRegion is CombineRegion)
         {
             CombineRegion.Instance.AddCard(this);
         }
 
-        PointerManager.UnregisterDraggingObject(this);
+        if (targetRegion is StoreRegion)
+        {
+            StoreRegion.Instance.AddCard(this);
+        }
     }
 
     public void OnDrag(Vector2 delta)
@@ -189,6 +217,8 @@ public class Card : MonoBehaviour, IDraggable
 
     public void OnClick()
     {
+        AudioManager.Instance.PlayAudioClip("单击纸片",false);
+
         if (previousState == CardState.Selected)
         {
             UnselectCard();
@@ -209,7 +239,7 @@ public class Card : MonoBehaviour, IDraggable
     {
 
         CardState = CardState.Selected;
-        transform.DOScale(selectedScale, scaleTransitionDuration).SetEase(scaleEase);
+        transform.DOScale(selectedScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
 
         Debug.Log($"Card selected: {gameObject.name}");
     }
@@ -217,9 +247,9 @@ public class Card : MonoBehaviour, IDraggable
     private void UnselectCard()
     {
         CardState = CardState.Wait;
-        transform.DOScale(normalScale, scaleTransitionDuration).SetEase(scaleEase);
+        transform.DOScale(normalScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
 
-        CombineRegion.Instance.AddCard(this);
+        CheckRegion(out CardDropRegion targetRegion);
         Debug.Log($"Card unselected: {gameObject.name}");
     }
 
@@ -233,6 +263,29 @@ public class Card : MonoBehaviour, IDraggable
         {
             return name;
         }
+    }
+
+    public void SetCardName(string name)
+    {
+        this.name = name;
+    }
+
+    public void ResetCardState()
+    {
+        CardState = CardState.Wait;
+        UnselectCard();
+        PointerManager.UnregisterDraggingObject(this);
+    }
+
+    public void SetCardImage(Sprite sprite)
+    {
+        GetComponent<SpriteRenderer>().sprite = sprite;
+    }
+
+    public void SetCardScale(Vector3 scale)
+    {
+        originalScale = scale;
+        transform.localScale = scale;
     }
 }
 

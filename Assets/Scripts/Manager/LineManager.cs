@@ -47,6 +47,11 @@ public class LineManager : MonoBehaviour
         if (LineDictionary.ContainsKey((a, b))) return;
 
         GameObject lineGameObject = LinePool.Get();
+        if (!lineGameObject.TryGetComponent<LineRenderer>(out var lineRenderer))
+        {
+            lineGameObject.AddComponent<LineRenderer>().sortingOrder = -10;
+        }
+
         if (!lineGameObject.TryGetComponent<Line>(out Line line))
             lineGameObject.AddComponent<Line>();
         line = lineGameObject.GetComponent<Line>();
@@ -104,6 +109,16 @@ public class LineManager : MonoBehaviour
         }
 
         LinePool.Release(line);
+    }
+
+    public void ClearLines()
+    {
+        foreach (var line in Lines)
+        {
+            LinePool.Release(line);
+        }
+        Lines.Clear();
+        LineDictionary.Clear();
     }
 }
 
