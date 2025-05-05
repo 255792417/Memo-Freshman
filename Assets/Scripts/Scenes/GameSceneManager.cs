@@ -1,5 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -30,7 +29,7 @@ public class GameSceneManager : MonoBehaviour
     public void OnReturnButtonClick()
     {
         AudioManager.Instance.PlayAudioClip("UI点击", false);
-        SceneManager.LoadScene("LoadingScene");
+        SceneManager.LoadScene("StartScene");
         gameData.SetScene(0);
     }
 

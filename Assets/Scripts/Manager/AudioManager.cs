@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.Pool;
@@ -9,11 +8,13 @@ public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
 
+    [SerializeField] private AudioData audioData;
+
     [System.Serializable]
     public class AudioClipData
     {
         public string name;
-        public AudioClip clip;
+        public AudioClip[] clip;
         public float volume;
     }
 
@@ -71,11 +72,6 @@ public class AudioManager : MonoBehaviour
         BgmAudioObject.transform.SetParent(this.transform);
     }
 
-    void Start()
-    {
-        
-    }
-
     public void PlayAudioClip(string audioName, bool isLoop)
     {
         audioClipDictionary.TryGetValue(audioName, out var audioClip);
@@ -83,13 +79,13 @@ public class AudioManager : MonoBehaviour
         {
             GameObject audioSourceObject = audioSourcePool.Get();
             AudioSource audioSource = audioSourceObject.GetComponent<AudioSource>();
-            audioSource.clip = audioClip.clip;
+            audioSource.clip = audioClip.clip[Random.Range(0, audioClip.clip.Length)];
             audioSource.loop = isLoop;
             audioSource.volume = audioClip.volume;
             audioSource.outputAudioMixerGroup = sfxAudioGroup;
             audioSource.Play();
             if(isLoop == false)
-                StartCoroutine(ReleaseAudioSource(audioSourceObject, audioClip.clip.length));
+                StartCoroutine(ReleaseAudioSource(audioSourceObject, audioSource.clip.length));
         }
     }
 
@@ -107,7 +103,7 @@ public class AudioManager : MonoBehaviour
         if (audioClip != null)
         {
             AudioSource bgmAudioSource = BgmAudioObject.GetComponent<AudioSource>();
-            bgmAudioSource.clip = audioClip.clip;
+            bgmAudioSource.clip = audioClip.clip[Random.Range(0, audioClip.clip.Length)];
             bgmAudioSource.volume = audioClip.volume;
             bgmAudioSource.loop = true;
             bgmAudioSource.outputAudioMixerGroup = bgmAudioGroup;
@@ -124,6 +120,7 @@ public class AudioManager : MonoBehaviour
         else
             volume = minVolume + (maxVolume - minVolume) * (Mathf.Log10(value / epsilon) / Mathf.Log10(1 / epsilon));
         audioMixer.SetFloat("BGMVolume", volume);
+        audioData.BGMVolume = value;
     }
 
     public void SetSFXVolume(float value)
@@ -135,5 +132,22 @@ public class AudioManager : MonoBehaviour
         else
             volume = minVolume + (maxVolume - minVolume) * (Mathf.Log10(value / epsilon) / Mathf.Log10(1 / epsilon));
         audioMixer.SetFloat("SFXVolume", volume);
+        audioData.SFXVolume = value;
+    }
+
+    public void StopBGM()
+    {
+        AudioSource bgmAudioSource = BgmAudioObject.GetComponent<AudioSource>();
+        bgmAudioSource.Stop();
+    }
+
+    public float GetBGMVolume()
+    {
+        return audioData.BGMVolume;
+    }
+
+    public float GetSFXVolume()
+    {
+        return audioData.SFXVolume;
     }
 }

@@ -10,7 +10,10 @@ public class InfoManager : MonoBehaviour
 {
     public static InfoManager Instance { get; private set; }
 
+    public GameObject cardInfoPanel;
+    public List<GameObject> CardImageObjects;
     public TextMeshProUGUI CardDescription;
+    public CardDescriptionScroll cardDescriptionScroll;
     public Image CardImage;
 
     public GameObject SentenceInfoPanel;
@@ -26,6 +29,8 @@ public class InfoManager : MonoBehaviour
         public string cardName;
         public Vector3 position;
     }
+
+
 
     public List<CardPos> cardPosList = new List<CardPos>();
     private Dictionary<string, Vector3> cardPosDictionary = new Dictionary<string, Vector3>();
@@ -54,6 +59,7 @@ public class InfoManager : MonoBehaviour
     void Start()
     {
         sentenceInfoPanelCanvasGroup = SentenceInfoPanel.GetComponent<CanvasGroup>();
+        CardImageObjects = cardInfoPanel.GetComponent<CardInfoPanel>().CardImageObjects;
 
         foreach (var cardPos in cardPosList)
         {
@@ -61,13 +67,15 @@ public class InfoManager : MonoBehaviour
         }
     }
 
-    public void SetCardInfo(string description, string imageName, CardType cardType)
+    public void SetCardInfoDescription(string description, CardType cardType)
     {
         if (description != "null")
         {
+            CardDescription.gameObject.SetActive(true);
             // 处理描述文本中的[""]标记
             string processedText = ProcessCardDescription(description);
             this.CardDescription.text = processedText;
+            cardDescriptionScroll.ScrollToTop();
             if (cardType == CardType.Information || cardType == CardType.Motion)
             {
                 this.CardDescription.font = font1;
@@ -78,15 +86,70 @@ public class InfoManager : MonoBehaviour
                 this.CardDescription.font = font2;
             }
         }
-
-        if (imageName != "null")
-        {
-            this.CardImage.gameObject.SetActive(true);
-            this.CardImage.sprite = Resources.Load<Sprite>("Images/" + imageName);
-        }
-        else
-            this.CardImage.gameObject.SetActive(false);
     }
+
+    public void SetCardInfoImages(List<string> cardNames)
+    {
+        List<string> imageNames = new List<string>();
+        foreach (var cardName in cardNames)
+        {
+            imageNames.Add(CardManager.Instance.GetCardInfo(cardName).ImageName);
+        }
+
+        int currentIndex = 0;
+        for (int i = 0; i < imageNames.Count; i++)
+        {
+            if(currentIndex >= CardImageObjects.Count) break;
+
+            string imageName = imageNames[i];
+            if (imageName != "null")
+            {
+                Image CardImage = CardImageObjects[currentIndex].GetComponent<Image>();
+                CardImage.gameObject.SetActive(true);
+                Sprite sprite = Resources.Load<Sprite>("Images/" + imageName);
+                if (sprite == null) return;
+                CardImage.sprite = sprite;
+                CardImage.gameObject.name = imageName;
+
+                CardImage.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                CardImage.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                CardImage.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+                float imageWidth = sprite.rect.width;
+                float imageHeight = sprite.rect.height;
+
+                float maxWidth = 2f;
+                float maxHeight = 2.5f;
+
+                float aspectRatio = imageWidth / imageHeight;
+
+                float targetWidth, targetHeight;
+
+                if (imageWidth / imageHeight > maxWidth / maxHeight)
+                {
+                    targetWidth = Mathf.Min(imageWidth, maxWidth);
+                    targetHeight = targetWidth / aspectRatio;
+                }
+                else
+                {
+                    targetHeight = Mathf.Min(imageHeight, maxHeight);
+                    targetWidth = targetHeight * aspectRatio;
+                }
+
+                CardImage.rectTransform.sizeDelta = new Vector2(targetWidth, targetHeight);
+
+                CardImage.preserveAspect = true;
+
+                currentIndex++;
+            }
+        }
+
+        for (int i = currentIndex; i < CardImageObjects.Count; i++)
+        {
+            CardImageObjects[currentIndex].gameObject.SetActive(false);
+        }
+    }
+
 
     private string ProcessCardDescription(string description)
     {
@@ -95,12 +158,54 @@ public class InfoManager : MonoBehaviour
 
         string pattern = @"\[""(.+?)""\]";
 
-        string processedText = Regex.Replace(description, pattern, match => {
-            string content = match.Groups[1].Value;
-            return $"<color=#F35F00>{content}</color>";
-        });
+        List<GameObject> cardList = new List<GameObject>();
+
+        string processedText = Regex.Replace(description, pattern, match => SpawnCardsInCardDescription(match, cardList));
+
+        StartCoroutine(ShowCardsInCardDescription(cardList));
 
         return processedText;
+    }
+
+    private string SpawnCardsInCardDescription(Match match, List<GameObject> cardList)
+    {
+        string content = match.Groups[1].Value;
+        if (!CardManager.Instance.HaveCard(content))
+        {
+            cardPosDictionary.TryGetValue(content, out var cardPos);
+            CardManager.Instance.SpawnCard(content, cardPos);
+            GameObject card = CardManager.Instance.GetCard(content);
+            card.transform.localScale = Vector3.zero;
+            cardList.Add(card);
+            CardManager.Instance.PlaceCardRandomlyInStoreRegion(card,content);
+        }
+        return $"<color=#F35F00>{content}</color>";
+    }
+
+    IEnumerator ShowCardsInCardDescription(List<GameObject> cardList)
+    {
+        float elapsedTime = 0f;
+        float duration = 1f;
+        foreach (var card in cardList)
+        {
+            card.transform.localScale = Vector3.zero;
+        }
+
+        while (elapsedTime < duration)
+        {
+            elapsedTime += Time.deltaTime;
+            foreach (var card in cardList)
+            {
+                card.transform.localScale = card.GetComponent<Card>().originalScale * (elapsedTime / duration);
+            }
+
+            yield return null;
+        }
+
+        foreach (var card in cardList)
+        {
+            card.transform.localScale = card.GetComponent<Card>().originalScale;
+        }
     }
 
     public void ClearCardInfo()
@@ -109,25 +214,97 @@ public class InfoManager : MonoBehaviour
         this.CardImage.sprite = null;
     }
 
-    public void SetSentenceInfo(string description, string imageName)
+    private string currentSentenceName = null;
+    public void SetSentenceInfo(string sentenceName,string[] descriptions)
     {
+        currentSentenceName = sentenceName;
+        currentSentenceDescriptions = descriptions;
+        currentSentenceDescriptionIndex = 0;
         SentenceInfoPanel.SetActive(true);
+        StartCoroutine(ShowSentenceInfoPanel());
+        StartCoroutine(ShowNextSentenceDescription());
+    }
+
+    List<SpriteRenderer> cardSpriteRenderers = new List<SpriteRenderer>();
+    public void PlaceNewCard()
+    {
+        foreach (var card in cardSpriteRenderers)
+        {
+            card.sortingLayerName = "Default";
+            CardManager.Instance.PlaceCardRandomlyInStoreRegion(card.gameObject, card.name);
+        }
+    }
+
+    private int currentSentenceDescriptionIndex = 0;
+    private string[] currentSentenceDescriptions;
+    public IEnumerator ShowNextSentenceDescription()
+    {
+        if (currentSentenceDescriptionIndex >= currentSentenceDescriptions.Length)
+        {
+            yield return StartCoroutine(HideSentenceInfoPanel());
+            PlaceNewCard();
+            GameOverManager.Instance.CheckGameOver(currentSentenceName);
+            yield break;
+        }
+
+        if (currentSentenceDescriptionIndex != 0)
+        {
+            yield return StartCoroutine(HideSentenceDescription());
+            yield return StartCoroutine(HideSentenceImage());
+
+            PlaceNewCard();
+        }
+
+        string description = currentSentenceDescriptions[currentSentenceDescriptionIndex];
+        string imageName = "null";
+        if (description.StartsWith("{image}"))
+        {
+            imageName = description.Substring(7);
+            description = "null";
+        }
+
         if (description != "null")
+        {
             originalSentenceText = description;
+            StartCoroutine(ShowSentenceDescription());
+            ParseDescription();
+        }
 
         if (imageName != "null")
         {
-            this.SentenceImage.gameObject.SetActive(true);
-            this.SentenceImage.sprite = Resources.Load<Sprite>("Images/" + imageName);
+            Sprite sprite = Resources.Load<Sprite>("Images/" + imageName);
+            this.SentenceImage.sprite = sprite;
+
+            this.SentenceImage.preserveAspect = true;
+
+            RectTransform canvasRect = SentenceInfoPanel.GetComponent<RectTransform>();
+
+            float canvasWidth = canvasRect.rect.width;
+            float canvasHeight = canvasRect.rect.height;
+
+            float imageWidth = sprite.rect.width;
+            float imageHeight = sprite.rect.height;
+
+            this.SentenceImage.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            this.SentenceImage.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            this.SentenceImage.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+            this.SentenceImage.rectTransform.anchoredPosition = Vector2.zero;
+
+            float scaleX = canvasWidth / imageWidth;
+            float scaleY = canvasHeight / imageHeight;
+            float scale = Mathf.Min(scaleX, scaleY);
+
+            this.SentenceImage.rectTransform.sizeDelta = new Vector2(
+                imageWidth * scale,
+                imageHeight * scale
+            );
+            StartCoroutine(ShowSentenceImage());
         }
-        else
-            this.SentenceImage.gameObject.SetActive(false);
 
-        if (description != "null")
-            ParseDescription();
-
-        StartCoroutine(ShowSentenceInfoPanel());
+        currentSentenceDescriptionIndex++;
     }
+
 
     public void ClearSentenceInfo()
     {
@@ -138,6 +315,8 @@ public class InfoManager : MonoBehaviour
 
     IEnumerator ShowSentenceInfoPanel()
     {
+        SentenceImage.gameObject.SetActive(false);
+        SentenceDescription.gameObject.SetActive(false);
         float elapsedTime = 0;
 
         sentenceInfoPanelCanvasGroup.alpha = 0;
@@ -175,6 +354,98 @@ public class InfoManager : MonoBehaviour
 
         sentenceInfoPanelCanvasGroup.alpha = 0;
         SentenceInfoPanel.SetActive(false);
+    }
+
+    IEnumerator ShowSentenceImage()
+    {
+        SentenceImage.gameObject.SetActive(true);
+        float fadeDuration = this.fadeDuration / 2;
+        float elapsedTime = 0;
+
+        Vector4 curColor = new Vector4(SentenceImage.color.r, SentenceImage.color.g, SentenceImage.color.b, 0);
+        SentenceImage.color = curColor;
+
+        while (elapsedTime < fadeDuration)
+        {
+            float alpha = Mathf.Lerp(0, 1, elapsedTime / fadeDuration);
+            curColor.w = alpha;
+            SentenceImage.color = curColor;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        curColor.w = 1;
+        SentenceImage.color = curColor;
+    }
+
+    IEnumerator HideSentenceImage()
+    {
+        float fadeDuration = this.fadeDuration / 2;
+        float elapsedTime = 0;
+
+        Vector4 curColor = new Vector4(SentenceImage.color.r, SentenceImage.color.g, SentenceImage.color.b, 1);
+        SentenceImage.color = curColor;
+
+        while (elapsedTime < fadeDuration)
+        {
+            float alpha = Mathf.Lerp(1, 0, elapsedTime / fadeDuration);
+            curColor.w = alpha;
+            SentenceImage.color = curColor;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        curColor.w = 0;
+        SentenceImage.color = curColor;
+        SentenceImage.gameObject.SetActive(false);
+    }
+
+    IEnumerator ShowSentenceDescription()
+    {
+        SentenceDescription.gameObject.SetActive(true);
+        float fadeDuration = this.fadeDuration / 2;
+        float elapsedTime = 0;
+
+        Vector4 curColor = new Vector4(SentenceDescription.color.r, SentenceDescription.color.g, SentenceDescription.color.b, 0);
+        SentenceDescription.color = curColor;
+
+        while (elapsedTime < fadeDuration)
+        {
+            float alpha = Mathf.Lerp(0, 1, elapsedTime / fadeDuration);
+            curColor.w = alpha;
+            SentenceDescription.color = curColor;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        curColor.w = 1;
+        SentenceDescription.color = curColor;
+    }
+
+    IEnumerator HideSentenceDescription()
+    {
+        float fadeDuration = this.fadeDuration / 2;
+        float elapsedTime = 0;
+
+        Vector4 curColor = new Vector4(SentenceDescription.color.r, SentenceDescription.color.g, SentenceDescription.color.b, 1);
+        SentenceDescription.color = curColor;
+
+        while (elapsedTime < fadeDuration)
+        {
+            float alpha = Mathf.Lerp(1, 0, elapsedTime / fadeDuration);
+            curColor.w = alpha;
+            SentenceDescription.color = curColor;
+
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        curColor.w = 0;
+        SentenceDescription.color = curColor;
+        SentenceDescription.gameObject.SetActive(false);
     }
 
     public void ParseDescription()
@@ -295,12 +566,15 @@ public class InfoManager : MonoBehaviour
         foreach (var entry in cardLineInfo)
         {
             string cardName = entry.Key;
-            CardManager.Instance.SpawnCard(cardName, cardPosDictionary[cardName]);
+            cardPosDictionary.TryGetValue(cardName, out var cardPos);
+            CardManager.Instance.SpawnCard(cardName, cardPos);
             GameObject card = CardManager.Instance.GetCard(cardName);
-            card.transform.DOMove(cardPosDictionary[cardName],1f);
+            card.transform.DOMove(cardPos,1f);
             card.GetComponent<SpriteRenderer>().sortingLayerName = "NewCard";
             cards.Add(card.GetComponent<SpriteRenderer>());
         }
+
+        cardSpriteRenderers = cards;
 
         float elapsedTime = 0f;
         foreach (var card in cards)
@@ -326,17 +600,27 @@ public class InfoManager : MonoBehaviour
     }
 
 
+    private bool isProcessing = false;
+
     public void OnSentenceInfoPanelClick()
     {
-        foreach (var card in CardManager.Instance.cardGameObjectDictionary.Values)
-        {
-            SpriteRenderer spriteRenderer = card.GetComponent<SpriteRenderer>();
-            if (spriteRenderer.sortingLayerName == "NewCard")
-            {
-                spriteRenderer.sortingLayerName = "Default";
-                CardManager.Instance.PlaceCardRandomlyInStoreRegion(card,card.name);
-            }
-        }
+        if (isProcessing)
+            return;
+
+        isProcessing = true;
+        StartCoroutine(ShowNextSentenceDescriptionWithFlag());
+    }
+
+    private IEnumerator ShowNextSentenceDescriptionWithFlag()
+    {
+        yield return StartCoroutine(ShowNextSentenceDescription());
+
+        isProcessing = false;
+    }
+
+    public void SetCardPos(string cardName, Vector3 pos)
+    {
+        cardPosDictionary[cardName] = pos;
     }
 }
 

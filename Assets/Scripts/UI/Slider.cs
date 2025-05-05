@@ -1,7 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
-using UnityEngine.UI;
 
 public class Slider : MonoBehaviour
 {
@@ -14,9 +12,11 @@ public class Slider : MonoBehaviour
         {
             case "BGM":
                 slider.onValueChanged.AddListener(AudioManager.Instance.SetBGMVolume);
+                slider.value = AudioManager.Instance.GetBGMVolume();
                 break;
             case "SFX":
                 slider.onValueChanged.AddListener(AudioManager.Instance.SetSFXVolume);
+                slider.value = AudioManager.Instance.GetSFXVolume();
                 break;
         }
     }

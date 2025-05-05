@@ -9,7 +9,6 @@ public class Line : MonoBehaviour
     public float minTurnRadius = 1.0f;
     public float lineWidth = 0.05f;
     public Color curveColor = Color.white;
-    public bool debugMode = false;
     [Range(0, 1)]
     public float transitionThreshold = 0.2f;
 
@@ -142,13 +141,6 @@ public class Line : MonoBehaviour
             Vector3 blendedPoint = Vector3.Lerp(bezierPoints[i], arcPoints[i], blendFactor);
             lineRenderer.SetPosition(i, blendedPoint);
         }
-
-        if (debugMode)
-        {
-            Debug.DrawLine(startPos, controlPoint1, Color.yellow);
-            Debug.DrawLine(endPos, controlPoint2, Color.yellow);
-            Debug.Log($"Transition blend factor: {blendFactor}");
-        }
     }
 
     void GenerateCircularArcPoints(Vector3 startPos, Vector3 startDir, Vector3 endPos, Vector3 endDir, out List<Vector3> points)
@@ -259,21 +251,7 @@ public class Line : MonoBehaviour
             DrawWithBezierCurve(startPos, startDir, endPos, endDir);
         }
 
-        if (debugMode)
-        {
-            Debug.DrawRay(startPos, startDir * minTurnRadius, Color.blue);
-            Debug.DrawRay(endPos, endDir * minTurnRadius, Color.blue);
-
-            bool isClockwise = Vector3.Cross(startDir, endDir).z < 0;
-            Vector3 startNormal = isClockwise ? new Vector3(-startDir.y, startDir.x, 0) : new Vector3(startDir.y, -startDir.x, 0);
-            Vector3 endNormal = isClockwise ? new Vector3(-endDir.y, endDir.x, 0) : new Vector3(endDir.y, -endDir.x, 0);
-
-            Vector3 startCenter = startPos + startNormal * minTurnRadius;
-            Vector3 endCenter = endPos + endNormal * minTurnRadius;
-
-            DrawDebugCircle(startCenter, minTurnRadius, 20, Color.green);
-            DrawDebugCircle(endCenter, minTurnRadius, 20, Color.green);
-        }
+       
     }
 
     void DrawWithBezierCurve(Vector3 startPos, Vector3 startDir, Vector3 endPos, Vector3 endDir)
@@ -291,11 +269,6 @@ public class Line : MonoBehaviour
             lineRenderer.SetPosition(i, point);
         }
 
-        if (debugMode)
-        {
-            Debug.DrawLine(startPos, controlPoint1, Color.yellow);
-            Debug.DrawLine(endPos, controlPoint2, Color.yellow);
-        }
     }
 
     Vector3 CubicBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)

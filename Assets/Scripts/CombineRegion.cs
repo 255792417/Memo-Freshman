@@ -9,8 +9,9 @@ public class CombineRegion : CardDropRegion
     public List<Card> cards;
     public List<string> cardNames;
 
-    void Start()
+    void Awake()
     {
+        base.Awake();
         if (Instance == null)
             Instance = this;
 
@@ -32,6 +33,7 @@ public class CombineRegion : CardDropRegion
         cardNames.Add(card.GetCardName());
         RefreshLines();
         SentenceManager.Instance.CheckSentences();
+        InfoManager.Instance.SetCardInfoImages(cardNames);
     }
 
     public void RemoveCard(Card card)
@@ -42,11 +44,16 @@ public class CombineRegion : CardDropRegion
         cardNames.Remove(card.GetCardName());
         RefreshLines();
         ReleaseCompletionCards();
+        InfoManager.Instance.SetCardInfoImages(cardNames);
     }
 
     public void RefreshLines()
     {
         cards.Sort((card1, card2) => card1.transform.position.x.CompareTo(card2.transform.position.x));
+        for (var i = 0; i < cards.Count; i++)
+        {
+            cardNames[i] = cards[i].GetCardName();
+        }
 
 
         int lineCount = LineManager.Instance.transform.childCount;

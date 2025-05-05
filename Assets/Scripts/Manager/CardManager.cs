@@ -1,7 +1,6 @@
-using System.Collections;
+
 using System.Collections.Generic;
 using UnityEngine;
-using Image = UnityEngine.UI.Image;
 using UnityEngine.Pool;
 using System.Linq;
 using DG.Tweening;
@@ -11,11 +10,16 @@ public class CardManager : MonoBehaviour
     public static CardManager Instance { get; private set; }
     private Dictionary<string, CardInfo> cardInfoDictionary = new Dictionary<string, CardInfo>();
     private Dictionary<string, CardType> cardTypeDictionary = new Dictionary<string, CardType>();
+    public Dictionary<string, string> CardIllustrationDictionary = new Dictionary<string, string>(); 
     private ObjectPool<GameObject> cardPool;
+
+    [SerializeField]private StoreRegion storeRegion;
 
     public Dictionary<string, GameObject> cardGameObjectDictionary = new Dictionary<string, GameObject>();
 
     private GameObject cardPrefab;
+
+    [SerializeField] private LevelBackground levelBackground;
 
     void Awake()
     {
@@ -43,13 +47,13 @@ public class CardManager : MonoBehaviour
             cardGameObjectDictionary.TryAdd(card.GetCardName(), card.gameObject);
             card.CheckRegion(out var _);
         }
+
+        foreach (var cardInfo in cardInfoDictionary.Values)
+        {
+            CardIllustrationDictionary.TryAdd(cardInfo.ImageName,cardInfo.IllustrationName);
+        }
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 
     public void SetCardInfoDict(Dictionary<string,CardInfo> cardInfo)
     {
@@ -84,20 +88,17 @@ public class CardManager : MonoBehaviour
     public void SetInfo(string cardName)
     {
         string description = "";
-        string imageName = "";
         CardType cardType = GetCardType(cardName);
         if (cardInfoDictionary.ContainsKey(cardName))
         {
             description = cardInfoDictionary[cardName].Description;
-            imageName = cardInfoDictionary[cardName].ImageName;
         }
         else
         {
             description = cardInfoDictionary["Default"].Description;
-            imageName = cardInfoDictionary["Default"].ImageName;
         }
 
-        InfoManager.Instance.SetCardInfo(description, imageName, cardType);
+        InfoManager.Instance.SetCardInfoDescription(description, cardType);
     }
 
 
@@ -112,6 +113,8 @@ public class CardManager : MonoBehaviour
     public void SpawnCard(string cardName, Vector3? pos = null)
     {
         if (cardGameObjectDictionary.ContainsKey(cardName)) return;
+
+        levelBackground.UpdateBackground(cardName);
 
         GameObject cardGameObject = cardPool.Get();
         Card card = cardGameObject.GetComponent<Card>();
@@ -138,8 +141,6 @@ public class CardManager : MonoBehaviour
 
     public void PlaceCardRandomlyInStoreRegion(GameObject cardGameObject, string cardName)
     {
-        StoreRegion storeRegion = StoreRegion.Instance;
-
         Vector3[] corners = storeRegion.regionCorners;
 
         Vector3 bottomLeft = corners[0];
@@ -292,6 +293,19 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    public CardInfo GetCardInfo(string cardName)
+    {
+        if (cardInfoDictionary.ContainsKey(cardName))
+        {
+            return cardInfoDictionary[cardName];
+        }
+        else
+        {
+            Debug.LogWarning("Card info not found: " + cardName);
+            return null;
+        }
+    }
+
     public void ReleaseCard(string CardName)
     {
         if(!cardGameObjectDictionary.ContainsKey(CardName)) return;
@@ -300,7 +314,13 @@ public class CardManager : MonoBehaviour
         cardGameObject.SetActive(false);
         cardPool.Release(cardGameObject);
         cardGameObjectDictionary.Remove(CardName);
-        cardGameObject.GetComponent<Card>().ResetCardState();
+        if(CardManager.Instance.GetCardType(CardName) != CardType.Completion)
+            cardGameObject.GetComponent<Card>().ResetCardState();
+    }
+
+    public bool HaveCard(string CardName)
+    {
+        return cardGameObjectDictionary.ContainsKey(CardName);
     }
 }
 
@@ -310,6 +330,7 @@ public class CardInfo
     public string Description;
     public string Type;
     public string ImageName;
+    public string IllustrationName;
 }
 
 public enum CardType

@@ -1,19 +1,15 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 
 public class CardDropRegion : MonoBehaviour
 {
-    public static CardDropRegion Instance { get; private set; }
     public RectTransform RectTransform = null;
     public Vector3[] regionCorners = new Vector3[4];
     private Bounds RegionBounds;
     public Vector3 CenterPosition = new Vector3(0, 0, 0);
 
-    private void Awake()
+    protected void Awake()
     {
-        if (Instance == null)
-            Instance = this;
         if (RectTransform == null)
         {
             RectTransform = GetComponent<RectTransform>();
@@ -25,6 +21,11 @@ public class CardDropRegion : MonoBehaviour
             regionCorners[2] - regionCorners[0]
         );
         CenterPosition = (regionCorners[0] + regionCorners[2]) * 0.5f;
+
+        foreach (var regionCorner in regionCorners)
+        {
+            Debug.Log(gameObject.name + regionCorner);
+        }
     }
 
     public bool isPointInRegion(Vector2 point)

@@ -51,7 +51,6 @@ MonoBehaviour:
   minTurnRadius: 1
   lineWidth: 0.05
   curveColor: {r: 1, g: 0.84488124, b: 0.39308167, a: 1}
-  debugMode: 0
   transitionThreshold: 0.2
 --- !u!120 &287631433378093348
 LineRenderer:
@@ -108,7 +107,7 @@ LineRenderer:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1
+        value: 0.8016529
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -120,8 +119,8 @@ LineRenderer:
       m_RotationOrder: 4
     colorGradient:
       serializedVersion: 2
-      key0: {r: 1, g: 1, b: 1, a: 1}
-      key1: {r: 1, g: 1, b: 1, a: 1}
+      key0: {r: 1, g: 0.49371064, b: 0.8061557, a: 1}
+      key1: {r: 1, g: 0.49411768, b: 0.8078432, a: 1}
       key2: {r: 0, g: 0, b: 0, a: 0}
       key3: {r: 0, g: 0, b: 0, a: 0}
       key4: {r: 0, g: 0, b: 0, a: 0}
@@ -145,7 +144,7 @@ LineRenderer:
       atime6: 0
       atime7: 0
       m_Mode: 0
-      m_ColorSpace: -1
+      m_ColorSpace: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     numCornerVertices: 0

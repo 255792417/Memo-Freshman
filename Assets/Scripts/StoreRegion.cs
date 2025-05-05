@@ -1,6 +1,5 @@
-using System.Collections;
+
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEngine;
 
 public class StoreRegion : CardDropRegion
@@ -16,8 +15,9 @@ public class StoreRegion : CardDropRegion
     public CardType currentType;
 
     // Start is called before the first frame update
-    void Start()
+    void Awake()
     {
+        base.Awake();
         if (Instance == null)
             Instance = this;
     }
@@ -63,6 +63,8 @@ public class StoreRegion : CardDropRegion
             motionCardDictionary.Remove(cardName);
         else if (cardType == CardType.Information)
             informationCardDictionary.Remove(cardName);
+
+        CombineRegion.Instance.ReleaseCompletionCards();
     }
 
     public void OnCharacterButtonClick()

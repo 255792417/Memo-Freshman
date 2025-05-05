@@ -1,11 +1,16 @@
-using System.Collections;
+
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Newtonsoft.Json;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
+    public GameObject startAnimation;
+    public List<CardDropRegion> regions = new List<CardDropRegion>();
 
     void Awake()
     {
@@ -13,30 +18,29 @@ public class GameManager : MonoBehaviour
             Instance = this;
     }
 
-    // Start is called before the first frame update
     void Start()
     {
         GetGameInfo();
-    }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+        if (startAnimation != null)
+        {
+            StartCoroutine(startAnimation.GetComponent<Starting>().PlayStartingAnimation());
+        }
+
     }
 
     void GetGameInfo()
     {
-        string jsonAsset = Resources.Load<TextAsset>("Json/preset").text;
+        string jsonAsset = Resources.Load<TextAsset>("Json/preset" + SceneManager.GetActiveScene().name[5]).text;
         GameInfo gameInfo = JsonConvert.DeserializeObject<GameInfo>(jsonAsset);
         if (gameInfo.CardInfo == null)
         {
-            Debug.Log("CardInfo is null");
+            //Debug.Log("CardInfo is null");
         }
 
         if (gameInfo.SentenceInfo == null)
         {
-            Debug.Log("SentenceInfo is null");
+            //Debug.Log("SentenceInfo is null");
         }
         CardManager.Instance.SetCardInfoDict(gameInfo.CardInfo);
         SentenceManager.Instance.SetSentenceInfoDict(gameInfo.SentenceInfo);

@@ -1,7 +1,4 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -15,18 +12,21 @@ public class LineManager : MonoBehaviour
 
     private ObjectPool<GameObject> LinePool;
 
+    private GameObject linePrefab;
+
     void Awake()
     {
         if (Instance == null)
             Instance = this;
 
         Lines = new List<GameObject>();
+        linePrefab = Resources.Load<GameObject>("Prefabs/Line");
     }
 
     void Start()
     {
         LinePool = new ObjectPool<GameObject>(
-            () => new GameObject(),
+            () => Instantiate(linePrefab),
             (GameObject line) => line.SetActive(true),
             (GameObject line) => line.SetActive(false),
             (GameObject line) => Destroy(line),

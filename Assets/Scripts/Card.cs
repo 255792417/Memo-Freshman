@@ -1,23 +1,20 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using DG.Tweening;
-using Microsoft.Unity.VisualStudio.Editor;
 
 public class Card : MonoBehaviour, IDraggable
 {
     public CardState CardState;
     private PointerManager PointerManager;
 
-    private Vector3 originalScale;
+    public Vector3 originalScale;
 
     private Vector2 dragOffset;
     private Vector3 originalPosition;
     private Vector3 pointerDownPosition;
     private float pointerDownTime;
 
-    private CardDropRegion[] regions;
+    private List<CardDropRegion> regions;
 
     private RectTransform rectTransform;
 
@@ -172,8 +169,6 @@ public class Card : MonoBehaviour, IDraggable
             }
             else
                 transform.DOScale(normalScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
-
-            Debug.Log($"Card placed in region: {targetRegion.name}");
         }
 
         PointerManager.UnregisterDraggingObject(this);
@@ -184,7 +179,7 @@ public class Card : MonoBehaviour, IDraggable
 
     public void CheckRegion(out CardDropRegion targetRegion)
     {
-        regions ??= FindObjectsByType<CardDropRegion>(FindObjectsSortMode.None);
+        regions = GameManager.Instance.regions;
 
         targetRegion = null;
 
@@ -241,7 +236,7 @@ public class Card : MonoBehaviour, IDraggable
         CardState = CardState.Selected;
         transform.DOScale(selectedScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
 
-        Debug.Log($"Card selected: {gameObject.name}");
+        //Debug.Log($"Card selected: {gameObject.name}");
     }
 
     private void UnselectCard()
@@ -249,8 +244,6 @@ public class Card : MonoBehaviour, IDraggable
         CardState = CardState.Wait;
         transform.DOScale(normalScale * originalScale, scaleTransitionDuration).SetEase(scaleEase);
 
-        CheckRegion(out CardDropRegion targetRegion);
-        Debug.Log($"Card unselected: {gameObject.name}");
     }
 
     public string GetCardName()

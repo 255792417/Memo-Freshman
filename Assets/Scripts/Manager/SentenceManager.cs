@@ -1,18 +1,48 @@
+
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using DG.Tweening;
-using Microsoft.Unity.VisualStudio.Editor;
-using TMPro;
-using UnityEditor.ShaderKeywordFilter;
 using UnityEngine;
-using Image = UnityEngine.UI.Image;
+using Random = UnityEngine.Random;
 
 public class SentenceManager : MonoBehaviour
 {
+    public class MultiSentenceInfo
+    {
+        public int curIndex;
+        public List<SentenceInfo> sentenceInfos;
+    }
+
+    [System.Serializable]
+    public class Precondition
+    {
+        public List<string> conditions;
+        public string sentenceName;
+    }
+
     public static SentenceManager Instance { get; private set; }
     private Dictionary<string, SentenceInfo> sentenceInfoDictionary = new Dictionary<string, SentenceInfo>();
+    private Dictionary<string, MultiSentenceInfo> multiSentenceInfoDictionary = new Dictionary<string, MultiSentenceInfo>();
     private Dictionary<string,HashSet<string>> cardAdjacentDictionary = new Dictionary<string, HashSet<string>>();
     public float cardMoveDuration = 1f;
+
+    public List<Precondition> preconditions = new List<Precondition>();
+    private Dictionary<string, List<string>> preconditionDictionary = new Dictionary<string, List<string>>(); // 预设条件字典，key为句子名，value为条件列表
+    private HashSet<string> activatedSentences = new HashSet<string>();
+
+    [System.Serializable]
+    public class uniqueCardPosInfo
+    {
+        public string sentenceName;
+        public Vector3 position;
+    }
+
+    public List<uniqueCardPosInfo> uniqueCardPosInfos = new List<uniqueCardPosInfo>();
+
+    public string uniqueCardName = "1月17日"; // 处理"1月17日"的名字
+    //处理"1月17日"的位置
+    private Dictionary<string, Vector3> uniqueCardPos = new Dictionary<string, Vector3>();
 
     void Awake()
     {
@@ -22,13 +52,48 @@ public class SentenceManager : MonoBehaviour
 
     void Start()
     {
+        foreach (var sentenceInfo in sentenceInfoDictionary.Values)
+        {
+            if (char.IsDigit(sentenceInfo.Name.Last()))
+            {
+                string multiSentenceName = sentenceInfo.Name.Substring(0, sentenceInfo.Name.Length - 1);
+                if (!multiSentenceInfoDictionary.ContainsKey(multiSentenceName))
+                {
+                    MultiSentenceInfo multiSentenceInfo = new MultiSentenceInfo();
+                    multiSentenceInfo.sentenceInfos = new List<SentenceInfo>();
+                    multiSentenceInfo.curIndex = 0;
+                    multiSentenceInfoDictionary.Add(multiSentenceName, multiSentenceInfo);
+                }
+                multiSentenceInfoDictionary[multiSentenceName].sentenceInfos.Add(sentenceInfo);
+            }
+        }
 
-    }
+        foreach (var multiSentenceInfo in multiSentenceInfoDictionary)
+        {
+            multiSentenceInfo.Value.sentenceInfos = multiSentenceInfo.Value.sentenceInfos.OrderBy(x => x.Name.Last()).ToList();
+            for (int i = 0; i < multiSentenceInfo.Value.sentenceInfos.Count; i++)
+            {
+                sentenceInfoDictionary.Remove(multiSentenceInfo.Value.sentenceInfos[i].Name);
+            }
+            sentenceInfoDictionary.Add(multiSentenceInfo.Key, multiSentenceInfo.Value.sentenceInfos[0]);
+        }
 
-    // Update is called once per frame
-    void Update()
-    {
+        foreach (var precondition in preconditions)
+        {
+            if (!preconditionDictionary.ContainsKey(precondition.sentenceName))
+            {
+                preconditionDictionary.Add(precondition.sentenceName, new List<string>());
+            }
+            preconditionDictionary[precondition.sentenceName].AddRange(precondition.conditions);
+        }
 
+        foreach (var uniqueCardPosInfo in uniqueCardPosInfos)
+        {
+            if (!uniqueCardPos.ContainsKey(uniqueCardPosInfo.sentenceName))
+            {
+                uniqueCardPos.Add(uniqueCardPosInfo.sentenceName, uniqueCardPosInfo.position);
+            }
+        }
     }
 
     public void SetSentenceInfoDict(Dictionary<string, SentenceInfo> sentenceInfo)
@@ -51,15 +116,18 @@ public class SentenceManager : MonoBehaviour
         }
     }
 
-    IEnumerator SetInfo(string sentenceName)
+    IEnumerator SetInfo(KeyValuePair<string,SentenceInfo> sentenceInfo)
     {
-        yield return new WaitForSeconds(cardMoveDuration);
-        if (sentenceInfoDictionary.ContainsKey(sentenceName))
+        if (uniqueCardPos.ContainsKey(sentenceInfo.Value.Name))
         {
-            SentenceInfo sentenceInfo = sentenceInfoDictionary[sentenceName];
-            string description = sentenceInfo.Description;
-            string imageName = sentenceInfo.ImageName;
-            InfoManager.Instance.SetSentenceInfo(description, imageName);
+            InfoManager.Instance.SetCardPos(uniqueCardName, uniqueCardPos[sentenceInfo.Value.Name]);
+        }
+
+        yield return new WaitForSeconds(cardMoveDuration);
+        if (sentenceInfoDictionary.ContainsKey(sentenceInfo.Key))
+        {
+            string[] description = sentenceInfo.Value.Description;
+            InfoManager.Instance.SetSentenceInfo(sentenceInfo.Value.Name,description);
         }
     }
 
@@ -80,13 +148,40 @@ public class SentenceManager : MonoBehaviour
         }
     }
 
+    private float lastCheckTime = 0f;
+    private float checkInterval = 0.2f;
     public void CheckSentences()
     {
-        foreach (var sentenceInfo in sentenceInfoDictionary.Values)
+        StartCoroutine(CheckSentencesCoroutine());
+    }
+
+    private string lastSentence = null;
+    private IEnumerator CheckSentencesCoroutine()
+    {
+        List<string> curCards = CombineRegion.Instance.cardNames;
+        KeyValuePair<string, SentenceInfo> resSentenceInfo = new KeyValuePair<string, SentenceInfo>();
+
+        foreach (var sentenceInfo in sentenceInfoDictionary)
         {
-            string[] cards = sentenceInfo.Cards;
-            List<string> curCards = CombineRegion.Instance.cardNames;
+            if (preconditionDictionary.ContainsKey(sentenceInfo.Value.Name))
+            {
+                List<string> preconditions = preconditionDictionary[sentenceInfo.Value.Name];
+                bool isPrecondition = false;
+                foreach (var precondition in preconditions)
+                {
+                    if (activatedSentences.Contains(precondition))
+                    {
+                        isPrecondition = true;
+                        break;
+                    }
+                }
+                if (!isPrecondition) continue;
+            }
+
+            if (lastSentence == sentenceInfo.Key && !multiSentenceInfoDictionary.ContainsKey(sentenceInfo.Key)) continue; // 避免重复触发
+            string[] cards = sentenceInfo.Value.Cards;
             bool isSentence = true;
+
             if (cards.Length == curCards.Count)
             {
                 for (int i = 0; i < cards.Length; i++)
@@ -105,27 +200,50 @@ public class SentenceManager : MonoBehaviour
 
             if (isSentence)
             {
-                ShowSentence(sentenceInfo);
+                if(Time.time - lastCheckTime < checkInterval) yield break;
+                lastCheckTime = Time.time;
+
+                lastSentence = sentenceInfo.Key;
+                activatedSentences.Add(sentenceInfo.Key);
+                // 等待 ShowSentence 完成
+                yield return StartCoroutine(ShowSentenceCoroutine(sentenceInfo));
+                resSentenceInfo = sentenceInfo;
+                break;
+            }
+        }
+
+        if (resSentenceInfo.Key == null) yield break;
+
+        if (multiSentenceInfoDictionary.ContainsKey(resSentenceInfo.Key))
+        {
+            multiSentenceInfoDictionary[resSentenceInfo.Key].curIndex++;
+            if (multiSentenceInfoDictionary[resSentenceInfo.Key].curIndex >= multiSentenceInfoDictionary[resSentenceInfo.Key].sentenceInfos.Count)
+            {
+                multiSentenceInfoDictionary.Remove(resSentenceInfo.Key);
+                sentenceInfoDictionary.Remove(resSentenceInfo.Key);
+            }
+            else
+            {
+                sentenceInfoDictionary[resSentenceInfo.Key] = multiSentenceInfoDictionary[resSentenceInfo.Key].sentenceInfos[multiSentenceInfoDictionary[resSentenceInfo.Key].curIndex];
             }
         }
     }
 
-    private void ShowSentence(SentenceInfo sentenceInfo)
+    private IEnumerator ShowSentenceCoroutine(KeyValuePair<string,SentenceInfo> sentenceInfo)
     {
         CardManager.Instance.ResetAllCardsState();
-
         AudioManager.Instance.PlayAudioClip("句式成立", false);
 
         // 生成补全单词
         string[] completed;
-        string[] cards = sentenceInfo.Cards;
-        if(sentenceInfo.Completed == null)
-            completed = sentenceInfo.Cards;
+        string[] cards = sentenceInfo.Value.Cards;
+        if (sentenceInfo.Value.Completed == null)
+            completed = sentenceInfo.Value.Cards;
         else
         {
-            completed = sentenceInfo.Completed;
+            completed = sentenceInfo.Value.Completed;
 
-            for (int i = 0, j = 0; j < completed.Length; j++)
+            for (int i = 0, j = 0; j < completed.Length && i < cards.Length; j++)
             {
                 if (completed[j] == cards[i])
                 {
@@ -143,28 +261,28 @@ public class SentenceManager : MonoBehaviour
         float length = CombineRegion.Instance.GetSizeX();
         float offset = length / completed.Length;
         float startX = CombineRegion.Instance.CenterPosition.x - length / 2 + offset / 2;
-        for(int i = 0; i < completed.Length; i++)
+        for (int i = 0; i < completed.Length; i++)
         {
+            CardManager.Instance.SpawnCard(completed[i]);
             GameObject cardGameObject = CardManager.Instance.GetCard(completed[i]);
             Card card = cardGameObject.GetComponent<Card>();
 
             CombineRegion.Instance.AddCard(card);
             StoreRegion.Instance.RemoveCard(card);
 
-            Vector3 targetPosition = new Vector3(startX + offset * i, CombineRegion.Instance.CenterPosition.y, 0);
+            Vector3 targetPosition = new Vector3(startX + offset * i, CombineRegion.Instance.CenterPosition.y + Random.Range(-.3f, .3f), 0);
             cardGameObject.transform.DOMove(targetPosition, cardMoveDuration);
         }
         LineManager.Instance.ClearLines();
 
-        StartCoroutine(SetInfo(sentenceInfo.Name));
+        yield return StartCoroutine(SetInfo(sentenceInfo));
     }
 }
 
 public class SentenceInfo
 {
     public string Name;
-    public string Description;
-    public string ImageName;
+    public string[] Description;
     public string[] Cards;
     public string[] Completed; // 需要补全的句子补全后的样子
 }
